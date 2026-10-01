@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KINEMATICS // Vertical Projection &amp; Free Fall</title>
+  <style>
+    /* RESET & ESSENTIALS */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      background-color: #000000;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+      font-weight: 300;
+      letter-spacing: -0.01em;
+    }
+
+    /* FULLSCREEN CANVAS */
+    #stage-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+      background: radial-gradient(circle at 65% 50%, rgba(15, 23, 42, 0.45) 0%, #000000 80%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .vignette {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2;
+      pointer-events: none;
+      box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.95);
+    }
+
+    /* HUD PROGRESS TRACKER */
+    #hud {
+      position: fixed;
+      top: 32px;
+      left: 36px;
+      z-index: 10;
+      font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    #hud-index {
+      color: #38bdf8;
+      font-weight: 600;
+      text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+    }
+
+    #progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #38bdf8, #10b981, #f59e0b, #f43f5e);
+      width: 0%;
+      z-index: 20;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+      transition: width 0.08s linear;
+    }
+
+    /* SCROLL STORYLINE */
+    #scrolly {
+      position: relative;
+      z-index: 5;
+    }
+
+    .step {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-left: 6vw;
+      padding-right: 50vw;
+      opacity: 0.12;
+      transform: translateY(24px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      pointer-events: none;
+    }
+
+    .step.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .card {
+      background: rgba(8, 12, 22, 0.76);
+      border-left: 2px solid #38bdf8;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      padding: 26px 30px;
+      border-radius: 0 14px 14px 0;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 24px rgba(56, 189, 248, 0.1);
+      max-width: 520px;
+    }
+
+    .card h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: #38bdf8;
+      margin-bottom: 8px;
+      font-family: ui-monospace, "SF Mono", monospace;
+    }
+
+    .card h1 {
+      font-size: 26px;
+      font-weight: 400;
+      color: #ffffff;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+
+    .card p {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #94a3b8;
+      margin-bottom: 14px;
+    }
+
+    .formula-tag {
+      display: inline-block;
+      font-family: ui-monospace, "SF Mono", "Courier New", monospace;
+      font-size: 13px;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      padding: 6px 14px;
+      border-radius: 6px;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.15);
+      margin-right: 8px;
+      margin-top: 4px;
+    }
+
+    .formula-sub {
+      display: inline-block;
+      font-family: ui-monospace, "SF Mono", monospace;
+      font-size: 12px;
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      padding: 5px 12px;
+      border-radius: 6px;
+      margin-top: 6px;
+    }
+
+    .scroll-hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.3);
+      z-index: 10;
+      animation: pulse 2s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.2; transform: translateX(-50%) translateY(0); }
+      50% { opacity: 0.75; transform: translateX(-50%) translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="progress-bar"></div>
+  <div class="vignette"></div>
+
+  <div id="hud">
+    <div id="hud-index">SYNOPSIS 08 // MODULE 01</div>
+    <div id="hud-title">VERTICAL PROJECTION INITIALIZATION</div>
+  </div>
+
+  <div class="scroll-hint">SCROLL TO OBSERVE DYNAMICS ↓</div>
+
+  <div id="stage-container">
+    <canvas id="physics-canvas"></canvas>
+  </div>
+
+  <main id="scrolly">
+    <!-- STEP 0 -->
+    <section class="step active" data-index="0" data-name="VERTICAL PROJECTION FUNDAMENTALS">
+      <div class="card">
+        <h3>Synopsis 8 // Section 1</h3>
+        <h1>Vertical Launch &amp; Retardation</h1>
+        <p>An object is projected upwards with initial velocity <code>u</code>. As it rises against Earth's gravitational pull, velocity decreases continuously until it reaches zero at maximum height.</p>
+        <div class="formula-tag">a = -g (downwards)</div>
+        <div class="formula-sub">v decreases continuously → v = 0 at apex</div>
+      </div>
+    </section>
+
+    <!-- STEP 1 -->
+    <section class="step" data-index="1" data-name="FIRST EQUATION OF MOTION">
+      <div class="card">
+        <h3>Kinematic Equation I</h3>
+        <h1>Velocity-Time Transformation</h1>
+        <p>Substituting acceleration <code>a = -g</code> into standard motion equation <code>v = u + at</code> gives the instantaneous upward speed at any elapsed second <code>t</code>.</p>
+        <div class="formula-tag">v = u - gt</div>
+        <div class="formula-sub">Here u = u, a = -g</div>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="step" data-index="2" data-name="SECOND EQUATION OF MOTION">
+      <div class="card">
+        <h3>Kinematic Equation II</h3>
+        <h1>Displacement-Time Function</h1>
+        <p>Substituting displacement <code>S = h</code> and acceleration <code>a = -g</code> into <code>S = ut + &frac12;at&sup2;</code> models the instantaneous vertical height.</p>
+        <div class="formula-tag">h = ut - &frac12;gt&sup2;</div>
+        <div class="formula-sub">Parabolic Trajectory in Space-Time</div>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="step" data-index="3" data-name="THIRD EQUATION OF MOTION">
+      <div class="card">
+        <h3>Kinematic Equation III</h3>
+        <h1>Velocity-Displacement Relation</h1>
+        <p>Substituting <code>a = -g</code> and <code>s = h</code> into <code>v&sup2; - u&sup2; = 2as</code> gives a direct velocity relation independent of elapsed time.</p>
+        <div class="formula-tag">v&sup2; - u&sup2; = -2gh</div>
+        <div class="formula-sub">v&sup2; = u&sup2; - 2gh</div>
+      </div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="step" data-index="4" data-name="MAXIMUM HEIGHT CALCULATION">
+      <div class="card">
+        <h3>Peak Elevation (Hmax)</h3>
+        <h1>Apex Condition &amp; Derivation</h1>
+        <p>At the highest elevation, vertical velocity ceases completely (<code>v = 0</code>). Solving <code>0&sup2; - u&sup2; = -2gH_max</code> isolates maximum displacement.</p>
+        <div class="formula-tag">H_max = u&sup2; / 2g</div>
+        <div class="formula-sub">Proportional to initial kinetic energy (u&sup2;)</div>
+      </div>
+    </section>
+
+    <!-- STEP 5 -->
+    <section class="step" data-index="5" data-name="TIME OF ASCENT (ta)">
+      <div class="card">
+        <h3>Time of Ascent</h3>
+        <h1>Duration of Upward Flight</h1>
+        <p>The total duration taken to attain apex height. At apex, <code>v = 0</code>. Substituting into <code>v = u - gt_a</code> yields:</p>
+        <div class="formula-tag">t_a = u / g</div>
+        <div class="formula-sub">0 = u - gt_a &implies; gt_a = u</div>
+      </div>
+    </section>
+
+    <!-- STEP 6 -->
+    <section class="step" data-index="6" data-name="TIME OF DESCENT (td)">
+      <div class="card">
+        <h3>Time of Descent</h3>
+        <h1>Descent from Apex to Ground</h1>
+        <p>Starting from rest at maximum height (<code>u = 0</code>) under constant downward acceleration <code>a = +g</code>, the body falls through height <code>H_max</code>.</p>
+        <div class="formula-tag">t_d = &radic;(2H/g) = u / g</div>
+        <div class="formula-sub">Symmetry: t_a = t_d</div>
+      </div>
+    </section>
+
+    <!-- STEP 7 -->
+    <section class="step" data-index="7" data-name="TOTAL TIME OF FLIGHT (tf)">
+      <div class="card">
+        <h3>Time of Flight</h3>
+        <h1>Combined Ascent &amp; Descent</h1>
+        <p>The net time duration the body remains airborne from the instant of projection until it strikes the ground plane.</p>
+        <div class="formula-tag">t_f = t_a + t_d = 2u / g</div>
+        <div class="formula-sub">Airborne Period is Doubled Ascent Time</div>
+      </div>
+    </section>
+
+    <!-- STEP 8 -->
+    <section class="step" data-index="8" data-name="VELOCITY ON IMPACT">
+      <div class="card">
+        <h3>Velocity on Reaching Ground</h3>
+        <h1>Symmetric Impact Velocity</h1>
+        <p>Dropping from height <code>h</code> with <code>u = 0</code> yields <code>v = &radic;(2gh)</code>. For vertical projection where <code>h = u&sup2;/2g</code>, impact speed equals launch speed.</p>
+        <div class="formula-tag">v_impact = &radic;(2gh) = u</div>
+        <div class="formula-sub">Magnitude of velocity conserved upon return</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* CANVAS & SYSTEM INITIALIZATION */
+    const canvas = document.getElementById("physics-canvas");
+    const ctx = canvas.getContext("2d");
+    const hudIndex = document.getElementById("hud-index");
+    const hudTitle = document.getElementById("hud-title");
+    const progressBar = document.getElementById("progress-bar");
+    const stepElements = document.querySelectorAll(".step");
+
+    let W = (canvas.width = window.innerWidth);
+    let H = (canvas.height = window.innerHeight);
+
+    window.addEventListener("resize", () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    });
+
+    let scrollProgress = 0;
+    let currentStep = 0;
+    let animClock = 0;
+
+    // Scroll interpolation listener
+    window.addEventListener("scroll", () => {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      scrollProgress = Math.max(0, Math.min(1, window.scrollY / (maxScroll || 1)));
+
+      const stepCount = stepElements.length;
+      const exactIndex = scrollProgress * (stepCount - 1);
+      currentStep = Math.min(stepCount - 1, Math.floor(exactIndex + 0.5));
+
+      progressBar.style.width = (scrollProgress * 100).toFixed(1) + "%";
+
+      stepElements.forEach((el, idx) => {
+        if (idx === currentStep) {
+          el.classList.add("active");
+          const modNum = (idx + 1).toString().padStart(2, "0");
+          hudIndex.innerText = `SYNOPSIS 08 // MODULE ${modNum}`;
+          hudTitle.innerText = el.getAttribute("data-name");
+        } else {
+          el.classList.remove("active");
+        }
+      });
+    });
+
+    /* RENDERING PRIMITIVES */
+    function drawGlowLine(x1, y1, x2, y2, color, lineWidth = 2, blur = 10) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = blur;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawDashedLine(x1, y1, x2, y2, color, lineWidth = 1.5) {
+      ctx.save();
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawGlowDot(x, y, radius, color, label = "") {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (label) {
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText(label, x + radius + 8, y + 4);
+      }
+      ctx.restore();
+    }
+
+    function drawArrowVector(x, y, lengthY, color, label = "") {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y - lengthY);
+      ctx.stroke();
+
+      const head = Math.sign(lengthY) * 7;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x, y - lengthY);
+      ctx.lineTo(x - 5, y - lengthY + head);
+      ctx.lineTo(x + 5, y - lengthY + head);
+      ctx.closePath();
+      ctx.fill();
+
+      if (label) {
+        ctx.fillStyle = color;
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText(label, x + 10, y - lengthY / 2);
+      }
+      ctx.restore();
+    }
+
+    function drawGround(x1, x2, y) {
+      drawGlowLine(x1, y, x2, y, "#94a3b8", 2, 4);
+      // Hatching
+      for (let x = x1; x < x2; x += 15) {
+        drawGlowLine(x, y, x - 10, y + 10, "rgba(148, 163, 184, 0.25)", 1, 0);
+      }
+    }
+
+    function drawSphericalBody(x, y, radius, color) {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core highlight
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    /* SCENIC MODULE RENDERERS */
+    const scenes = {
+      // 0: VERTICAL PROJECTION SETUP
+      0: (p, t) => {
+        const gX = W * 0.7;
+        const gY = H * 0.78;
+        const hMax = 280;
+
+        drawGround(gX - 160, gX + 160, gY);
+
+        // Simulated upward motion
+        const phase = (t * 1.2) % 3;
+        const normH = Math.sin(Math.min(phase, 1.57));
+        const currY = gY - 20 - normH * hMax;
+
+        // Ground object
+        drawSphericalBody(gX, currY, 16, "#38bdf8");
+        drawArrowVector(gX, currY, 50 * (1 - normH), "#10b981", "v (decreasing)");
+        drawArrowVector(gX + 50, currY, -40, "#f43f5e", "a = -g");
+
+        drawDashedLine(gX, gY - 20, gX, gY - 20 - hMax, "rgba(255,255,255,0.2)");
+        drawGlowDot(gX, gY - 20 - hMax, 4, "#f59e0b", "Apex (v = 0)");
+      },
+
+      // 1: FIRST EQUATION: v = u - gt
+      1: (p, t) => {
+        const cX = W * 0.68;
+        const gY = H * 0.78;
+        drawGround(cX - 160, cX + 160, gY);
+
+        const u = 60;
+        const g = 9.8;
+        const totalT = u / g;
+        const currT = (t * 1.2) % totalT;
+        const currV = u - g * currT;
+        const currH = u * currT - 0.5 * g * currT * currT;
+
+        const scaleY = 3.5;
+        const ballY = gY - 20 - currH * scaleY;
+
+        drawSphericalBody(cX, ballY, 15, "#38bdf8");
+        drawArrowVector(cX, ballY, currV * 1.2, "#10b981", `v = ${(currV).toFixed(1)} m/s`);
+        drawArrowVector(cX + 40, ballY, -35, "#f43f5e", "a = -g");
+
+        // Live HUD Metrics
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText(`Elapsed t : ${currT.toFixed(2)} s`, cX - 140, gY - 320);
+        ctx.fillText(`Initial u : ${u.toFixed(1)} m/s`, cX - 140, gY - 295);
+        ctx.fillText(`Current v : (u - gt) = ${currV.toFixed(1)} m/s`, cX - 140, gY - 270);
+      },
+
+      // 2: SECOND EQUATION: h = ut - 1/2 gt^2
+      2: (p, t) => {
+        const originX = W * 0.52;
+        const originY = H * 0.75;
+        const graphW = 320;
+        const graphH = 240;
+
+        // Space-Time Coordinate Axes
+        drawGlowLine(originX, originY, originX + graphW, originY, "#94a3b8", 1.5, 0);
+        drawGlowLine(originX, originY, originX, originY - graphH, "#94a3b8", 1.5, 0);
+
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText("Time (t) →", originX + graphW - 50, originY + 20);
+        ctx.fillText("↑ Height h(t)", originX - 70, originY - graphH + 15);
+
+        // Parabola plotting
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        for (let x = 0; x <= graphW; x += 4) {
+          const normT = (x / graphW) * 2;
+          // Normalized parabolic curve h = ut - 1/2gt^2
+          const normY = (normT * (2 - normT)) * (graphH - 20);
+          const py = originY - Math.max(0, normY);
+          if (x === 0) ctx.moveTo(originX + x, py);
+          else ctx.lineTo(originX + x, py);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        // Traveling dot along the parabola
+        const traceProgress = (t * 0.6) % 1;
+        const curPx = originX + traceProgress * graphW;
+        const tVal = traceProgress * 2;
+        const curPy = originY - (tVal * (2 - tVal)) * (graphH - 20);
+
+        drawGlowDot(curPx, curPy, 6, "#f59e0b", `h = ${(Math.max(0, tVal * (2 - tVal) * 50)).toFixed(1)} m`);
+      },
+
+      // 3: THIRD EQUATION: v^2 - u^2 = -2gh
+      3: (p, t) => {
+        const cX = W * 0.7;
+        const gY = H * 0.78;
+        drawGround(cX - 160, cX + 160, gY);
+
+        const hTot = 260;
+        const simFrac = (Math.sin(t * 1.5) + 1) / 2; // 0 to 1
+        const curH = simFrac * hTot;
+        const curY = gY - 20 - curH;
+
+        drawDashedLine(cX, gY - 20, cX, gY - 20 - hTot, "rgba(255,255,255,0.2)");
+        drawSphericalBody(cX, curY, 15, "#10b981");
+
+        // Height bracket indicator
+        drawGlowLine(cX - 40, gY - 20, cX - 40, curY, "#38bdf8", 1.5, 4);
+        drawGlowLine(cX - 46, curY, cX - 34, curY, "#38bdf8", 1.5, 0);
+        drawGlowLine(cX - 46, gY - 20, cX - 34, gY - 20, "#38bdf8", 1.5, 0);
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText(`h = ${(curH * 0.2).toFixed(1)} m`, cX - 95, curY + (gY - 20 - curY) / 2);
+
+        // Real-time calculation readout
+        const u = 40;
+        const v = Math.sqrt(Math.max(0, u * u - 2 * 9.8 * (curH * 0.2)));
+        drawArrowVector(cX, curY, v * 1.2, "#10b981", `v = ${v.toFixed(1)} m/s`);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText(`v² = u² - 2gh`, cX + 35, curY - 20);
+        ctx.fillText(`${(v*v).toFixed(0)} = ${(u*u)} - ${(2 * 9.8 * (curH * 0.2)).toFixed(0)}`, cX + 35, curY);
+      },
+
+      // 4: MAXIMUM HEIGHT REACHED (H_max = u^2 / 2g)
+      4: (p, t) => {
+        const cX = W * 0.7;
+        const gY = H * 0.78;
+        const hMax = 280;
+        drawGround(cX - 160, cX + 160, gY);
+
+        drawDashedLine(cX, gY - 20, cX, gY - 20 - hMax, "rgba(255,255,255,0.2)");
+
+        // Apex body
+        const apexY = gY - 20 - hMax;
+        drawSphericalBody(cX, apexY, 16, "#f59e0b");
+        drawGlowDot(cX, apexY, 6, "#ffffff", "v = 0 (Rest at apex)");
+
+        // Height marker
+        drawGlowLine(cX - 50, gY - 20, cX - 50, apexY, "#38bdf8", 2, 6);
+        drawGlowLine(cX - 58, apexY, cX - 42, apexY, "#38bdf8", 2, 0);
+        drawGlowLine(cX - 58, gY - 20, cX - 42, gY - 20, "#38bdf8", 2, 0);
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText("H_max = u² / 2g", cX - 160, apexY + hMax / 2);
+
+        // Ground launch position
+        drawSphericalBody(cX, gY - 20, 12, "rgba(56, 189, 248, 0.4)");
+        drawArrowVector(cX, gY - 20, 55, "#10b981", "u (Initial)");
+      },
+
+      // 5: TIME OF ASCENT (ta = u / g)
+      5: (p, t) => {
+        const cX = W * 0.7;
+        const gY = H * 0.78;
+        const hMax = 260;
+        drawGround(cX - 160, cX + 160, gY);
+
+        // Upward motion loop
+        const tFrac = (t * 0.7) % 1.2;
+        const cappedT = Math.min(1, tFrac);
+        // h(t) normalized
+        const currH = (2 * cappedT - cappedT * cappedT) * hMax;
+        const currY = gY - 20 - currH;
+
+        drawDashedLine(cX, gY - 20, cX, gY - 20 - hMax, "rgba(255,255,255,0.2)");
+        drawSphericalBody(cX, currY, 15, "#38bdf8");
+
+        const vel = (1 - cappedT) * 45;
+        if (vel > 2) drawArrowVector(cX, currY, vel, "#10b981", "v → 0");
+        drawArrowVector(cX + 35, currY, -30, "#f43f5e", "g");
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText(`Ascent Timer: ${cappedT.toFixed(2)}s / ${(1.0).toFixed(2)}s`, cX - 130, gY - 300);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillText("v = 0 = u - g · t_a  ⇒  t_a = u / g", cX - 130, gY - 275);
+      },
+
+      // 6: TIME OF DESCENT (td = u / g)
+      6: (p, t) => {
+        const cX = W * 0.7;
+        const gY = H * 0.78;
+        const hMax = 260;
+        drawGround(cX - 160, cX + 160, gY);
+
+        // Downward motion loop
+        const tFrac = (t * 0.7) % 1.2;
+        const cappedT = Math.min(1, tFrac);
+        // Falling from rest: h = 1/2 g t^2
+        const fallH = (cappedT * cappedT) * hMax;
+        const currY = gY - 20 - hMax + fallH;
+
+        drawDashedLine(cX, gY - 20, cX, gY - 20 - hMax, "rgba(255,255,255,0.2)");
+        drawSphericalBody(cX, currY, 15, "#f59e0b");
+
+        // Velocity vector downwards
+        const downVel = cappedT * 45;
+        if (downVel > 2) drawArrowVector(cX, currY, -downVel, "#f59e0b", "v (increasing)");
+        drawArrowVector(cX + 35, currY, -30, "#f43f5e", "a = +g");
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText(`Descent Timer: ${cappedT.toFixed(2)}s`, cX - 130, gY - 300);
+        ctx.fillStyle = "#f59e0b";
+        ctx.fillText("H = ½ g t_d²  ⇒  t_d = √(2H/g) = u / g", cX - 130, gY - 275);
+      },
+
+      // 7: TIME OF FLIGHT (tf = 2u / g)
+      7: (p, t) => {
+        const cAscentX = W * 0.62;
+        const cDescentX = W * 0.78;
+        const gY = H * 0.78;
+        const hMax = 250;
+
+        drawGround(W * 0.52, W * 0.88, gY);
+
+        // Full cycle 0 to 2
+        const cycle = (t * 0.9) % 2;
+        if (cycle < 1) {
+          // Ascent stage
+          const y = gY - 20 - (2 * cycle - cycle * cycle) * hMax;
+          drawSphericalBody(cAscentX, y, 14, "#38bdf8");
+          drawArrowVector(cAscentX, y, (1 - cycle) * 35, "#10b981");
+        } else {
+          // Descent stage
+          const desT = cycle - 1;
+          const y = (gY - 20 - hMax) + (desT * desT) * hMax;
+          drawSphericalBody(cDescentX, y, 14, "#f59e0b");
+          drawArrowVector(cDescentX, y, -desT * 35, "#f59e0b");
+        }
+
+        drawDashedLine(cAscentX, gY - 20, cAscentX, gY - 20 - hMax, "rgba(56, 189, 248, 0.3)");
+        drawDashedLine(cDescentX, gY - 20, cDescentX, gY - 20 - hMax, "rgba(245, 158, 11, 0.3)");
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText("ASCENT (t_a = u/g)", cAscentX - 45, gY + 24);
+        ctx.fillStyle = "#f59e0b";
+        ctx.fillText("DESCENT (t_d = u/g)", cDescentX - 45, gY + 24);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "13px 'SF Mono', monospace";
+        ctx.fillText("Total Flight Time t_f = t_a + t_d = 2u / g", W * 0.55, gY - 290);
+      },
+
+      // 8: VELOCITY ON IMPACT: v = sqrt(2gh) = u
+      8: (p, t) => {
+        const cX = W * 0.7;
+        const gY = H * 0.78;
+        const hMax = 270;
+        drawGround(cX - 160, cX + 160, gY);
+
+        // Impact illustration
+        drawDashedLine(cX, gY - 20, cX, gY - 20 - hMax, "rgba(255,255,255,0.2)");
+
+        // Top release
+        drawSphericalBody(cX, gY - 20 - hMax, 10, "rgba(255,255,255,0.4)");
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText("Dropped (u = 0)", cX + 20, gY - 20 - hMax + 4);
+
+        // Bottom hit body with energy ripples
+        const impactBodyY = gY - 20;
+        drawSphericalBody(cX, impactBodyY, 16, "#f43f5e");
+        drawArrowVector(cX, impactBodyY - 40, -50, "#f43f5e", "v = √(2gh) = u");
+
+        // Shockwaves
+        const waveR = (t * 40) % 50;
+        ctx.save();
+        ctx.strokeStyle = `rgba(244, 63, 94, ${Math.max(0, 1 - waveR / 50)})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cX, impactBodyY + 10, waveR, Math.PI, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText("Conservation of Speed:", cX - 140, gY - 200);
+        ctx.fillText("v² - u² = 2gh", cX - 140, gY - 180);
+        ctx.fillText("v² - 0 = 2g(u²/2g) = u²", cX - 140, gY - 160);
+        ctx.fillText("⇒ v = u (Ground Speed)", cX - 140, gY - 140);
+      }
+    };
+
+    /* ENGINE LOOP */
+    function renderLoop() {
+      ctx.clearRect(0, 0, W, H);
+      animClock += 0.02;
+
+      if (scenes[currentStep]) {
+        scenes[currentStep](scrollProgress, animClock);
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    requestAnimationFrame(renderLoop);
+  </script>
+</body>
+</html> 

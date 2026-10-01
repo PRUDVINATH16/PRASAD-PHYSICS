@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Physics Mascot Playground // Character System</title>
+
+  <!-- Stylesheets (Strict Light Mode) -->
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/character.css" />
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Top Header & Telemetry HUD -->
+    <header class="playground-header">
+      <div class="brand-section">
+        <div class="brand-icon">🦊</div>
+        <div>
+          <h1 class="brand-title">Kip's Playground</h1>
+          <span class="brand-subtitle">Physics Character &amp; Motion Prototype</span>
+        </div>
+      </div>
+
+      <div class="hud-status">
+        <div class="hud-item">
+          <span class="hud-label">Current Action</span>
+          <span class="action-pill state-idle" id="hudActionBadge">IDLE</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Velocity</span>
+          <span class="hud-val" id="hudSpeedVal">0 px/s</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Heading</span>
+          <span class="hud-val" id="hudDirectionVal">Right ➔</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Daytime Park Scene Stage -->
+    <main class="scene-viewport" id="stageViewport">
+      <!-- Sun -->
+      <div class="scene-sun"></div>
+
+      <!-- Drifting Clouds -->
+      <div class="clouds-layer">
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+      </div>
+
+      <!-- Rolling Green Hills Backdrop -->
+      <div class="hills-backdrop">
+        <svg class="hills-svg" viewBox="0 0 1200 160" preserveAspectRatio="none">
+          <path d="M 0 110 Q 300 40 600 95 Q 900 140 1200 70 L 1200 160 L 0 160 Z" fill="#86efac" opacity="0.6" />
+          <path d="M 0 130 Q 250 80 550 120 Q 850 70 1200 110 L 1200 160 L 0 160 Z" fill="#4ade80" />
+        </svg>
+      </div>
+
+      <!-- Park Trees & Greenery -->
+      <div class="park-decorations">
+        <div class="park-tree">
+          <div class="tree-foliage"></div>
+          <div class="tree-trunk"></div>
+        </div>
+        <div class="park-tree" style="transform: scale(0.85);">
+          <div class="tree-foliage" style="background: linear-gradient(135deg, #16a34a, #15803d);"></div>
+          <div class="tree-trunk"></div>
+        </div>
+        <div class="park-tree" style="transform: scale(1.1);">
+          <div class="tree-foliage"></div>
+          <div class="tree-trunk"></div>
+        </div>
+        <div class="park-tree" style="transform: scale(0.9);">
+          <div class="tree-foliage" style="background: linear-gradient(135deg, #22c55e, #15803d);"></div>
+          <div class="tree-trunk"></div>
+        </div>
+      </div>
+
+      <!-- Paved Walking & Riding Path -->
+      <div class="ground-track">
+        <div class="grass-strip"></div>
+        <div class="paved-path"></div>
+      </div>
+
+      <!-- Dust Particles Layer -->
+      <div class="dust-particles-layer" id="dustLayer"></div>
+
+      <!-- Character Stage Layer -->
+      <div class="character-stage-layer" id="characterLayer"></div>
+    </main>
+
+    <!-- Floating Tactile Control Panel -->
+    <footer class="controls-dock">
+      <div class="controls-wrapper">
+        <div class="controls-bar">
+          <button class="btn-action" id="btnWalk" title="Shortcut: W">
+            <span class="btn-icon">🚶</span> Walk
+          </button>
+          <button class="btn-action" id="btnFastWalk" title="Shortcut: F">
+            <span class="btn-icon">⚡</span> Fast Walk
+          </button>
+          <button class="btn-action" id="btnRun" title="Shortcut: R">
+            <span class="btn-icon">🏃</span> Run
+          </button>
+          <button class="btn-action" id="btnJump" title="Shortcut: Space or J">
+            <span class="btn-icon">🦘</span> Jump
+          </button>
+          <button class="btn-action" id="btnBicycle" title="Shortcut: B">
+            <span class="btn-icon">🚲</span> Bicycle
+          </button>
+          <button class="btn-action" id="btnRiding" title="Shortcut: S">
+            <span class="btn-icon">🛴</span> Riding
+          </button>
+
+          <span style="width: 1px; height: 32px; background: #e2e8f0; margin: 0 4px;"></span>
+
+          <button class="btn-action btn-secondary" id="btnTurn" title="Shortcut: T">
+            <span class="btn-icon">⇄</span> Turn
+          </button>
+          <button class="btn-action btn-secondary" id="btnReset" title="Shortcut: Esc">
+            <span class="btn-icon">↺</span> Reset
+          </button>
+        </div>
+
+        <div class="controls-hint">
+          Keyboard Shortcuts: 
+          <span class="kbd-shortcut">W</span> Walk &bull; 
+          <span class="kbd-shortcut">F</span> Fast Walk &bull; 
+          <span class="kbd-shortcut">R</span> Run &bull; 
+          <span class="kbd-shortcut">Space</span> Jump &bull; 
+          <span class="kbd-shortcut">B</span> Bicycle &bull; 
+          <span class="kbd-shortcut">S</span> Riding &bull; 
+          <span class="kbd-shortcut">T</span> Turn &bull; 
+          <span class="kbd-shortcut">Esc</span> Reset
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Main ES Module Script -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

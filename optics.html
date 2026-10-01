@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OPTICS // Scroll-Driven Physical Laboratory</title>
+  <style>
+    /* RESET & CORE TYPOGRAPHY */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      background-color: #000000;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+      font-weight: 300;
+      letter-spacing: -0.01em;
+    }
+
+    /* FULLSCREEN CINEMATIC CANVAS VIEWPORT */
+    #stage-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, rgba(10, 15, 30, 0.4) 0%, #000000 80%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* VIGNETTE OVERLAY */
+    .vignette {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2;
+      pointer-events: none;
+      box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.92);
+    }
+
+    /* HUD PROGRESS TRACKER */
+    #hud {
+      position: fixed;
+      top: 32px;
+      left: 36px;
+      z-index: 10;
+      font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    #hud-index {
+      color: #38bdf8;
+      font-weight: 600;
+      text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+    }
+
+    #progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #38bdf8, #818cf8, #f43f5e);
+      width: 0%;
+      z-index: 20;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+      transition: width 0.08s linear;
+    }
+
+    /* SCROLL STORYLINE CONTAINERS */
+    #scrolly {
+      position: relative;
+      z-index: 5;
+    }
+
+    .step {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-left: 7vw;
+      padding-right: 50vw;
+      opacity: 0.15;
+      transform: translateY(20px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      pointer-events: none;
+    }
+
+    .step.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .card {
+      background: rgba(8, 11, 20, 0.72);
+      border-left: 2px solid #38bdf8;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 24px 28px;
+      border-radius: 0 12px 12px 0;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.1);
+      max-width: 520px;
+    }
+
+    .card h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #38bdf8;
+      margin-bottom: 8px;
+      font-family: ui-monospace, "SF Mono", monospace;
+    }
+
+    .card h1 {
+      font-size: 26px;
+      font-weight: 400;
+      color: #ffffff;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+
+    .card p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #94a3b8;
+      margin-bottom: 14px;
+    }
+
+    .formula-tag {
+      display: inline-block;
+      font-family: ui-monospace, "SF Mono", "Courier New", monospace;
+      font-size: 13px;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 6px 14px;
+      border-radius: 6px;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+    }
+
+    .scroll-hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.3);
+      z-index: 10;
+      animation: pulse 2s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.2; transform: translateX(-50%) translateY(0); }
+      50% { opacity: 0.7; transform: translateX(-50%) translateY(-5px); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="progress-bar"></div>
+  <div class="vignette"></div>
+
+  <div id="hud">
+    <div id="hud-index">MODULE 01 // 20</div>
+    <div id="hud-title">LIGHT RECTILINEAR PROPAGATION</div>
+  </div>
+
+  <div class="scroll-hint">SCROLL TO ADVANCE EXPERIMENT ↓</div>
+
+  <div id="stage-container">
+    <canvas id="optics-canvas"></canvas>
+  </div>
+
+  <!-- SCROLLING PHASES -->
+  <main id="scrolly">
+    <!-- 0 -->
+    <section class="step active" data-index="0" data-name="LIGHT PROPAGATION">
+      <div class="card">
+        <h3>Optics Foundation</h3>
+        <h1>Wave-Particle Propagation</h1>
+        <p>Light propagates through homogeneous space along rectilinear wave fronts. Radiant energy transfers instantaneously as self-sustaining electromagnetic perturbations.</p>
+        <div class="formula-tag">c = λ · ν = 2.9979 × 10⁸ m/s</div>
+      </div>
+    </section>
+
+    <!-- 1 -->
+    <section class="step" data-index="1" data-name="SPECULAR REFLECTION">
+      <div class="card">
+        <h3>Law of Reflection</h3>
+        <h1>Fermat's Least Time Path</h1>
+        <p>At an optical boundary, the angle of reflection equals the angle of incidence. The incident ray, reflected ray, and surface normal all reside in a single plane.</p>
+        <div class="formula-tag">θᵢ = θᵣ &nbsp;|&nbsp; Coplanar Vectors</div>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section class="step" data-index="2" data-name="PLANE MIRROR FORMATION">
+      <div class="card">
+        <h3>Virtual Projection</h3>
+        <h1>Plane Mirror Image</h1>
+        <p>Reflected rays diverge from the mirror plane. Their geometric backward extrapolations intersect to form an upright, lateral-inverted, virtual image.</p>
+        <div class="formula-tag">dₒ = dᵢ &nbsp;|&nbsp; Magnification m = +1.0</div>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class="step" data-index="3" data-name="SPHERICAL MIRROR GEOMETRY">
+      <div class="card">
+        <h3>Curvature Optics</h3>
+        <h1>Principal Axis, Pole, F &amp; C</h1>
+        <p>Spherical mirrors curve with Center of Curvature (C) and Pole (P). Paraxial rays converge midway at the Principal Focus (F).</p>
+        <div class="formula-tag">f = R / 2 &nbsp;|&nbsp; Paraxial Limit</div>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="step" data-index="4" data-name="CONCAVE: BEYOND C">
+      <div class="card">
+        <h3>Concave Mirror (Case I)</h3>
+        <h1>Object Placed Beyond C</h1>
+        <p>Incident parallel rays reflect through focus F, while rays passing through C retrace their trajectory. Image is real, inverted, and diminished.</p>
+        <div class="formula-tag">Real, Inverted, Diminished (Between F &amp; C)</div>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section class="step" data-index="5" data-name="CONCAVE: AT C">
+      <div class="card">
+        <h3>Concave Mirror (Case II)</h3>
+        <h1>Object Positioned Exactly at C</h1>
+        <p>Rays converge directly below the center of curvature. Height of image precisely matches height of object.</p>
+        <div class="formula-tag">v = -2f &nbsp;|&nbsp; m = -1.0 (Same Size)</div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="step" data-index="6" data-name="CONCAVE: BETWEEN F &amp; C">
+      <div class="card">
+        <h3>Concave Mirror (Case III)</h3>
+        <h1>Object Between F and C</h1>
+        <p>As object moves nearer to the focal threshold, reflected wavefronts project further back into space, magnifying the inverted image.</p>
+        <div class="formula-tag">Image Beyond C &nbsp;|&nbsp; |m| &gt; 1.0 (Magnified)</div>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section class="step" data-index="7" data-name="CONCAVE: INSIDE F (VIRTUAL)">
+      <div class="card">
+        <h3>Concave Mirror (Case IV)</h3>
+        <h1>Object Between Focus &amp; Pole</h1>
+        <p>Reflected rays diverge into space. The eye tracks them backward behind the mirror surface, yielding an upright, magnified virtual image.</p>
+        <div class="formula-tag">Virtual, Erect, Magnified (Makeup / Shaving)</div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section class="step" data-index="8" data-name="CONVEX MIRROR DIVERGENCE">
+      <div class="card">
+        <h3>Convex Mirror</h3>
+        <h1>Wide-Angle Virtual Divergence</h1>
+        <p>Convex surfaces disperse incident rays away from the principal axis. Rays appear to emerge from a focal point situated behind the mirror.</p>
+        <div class="formula-tag">Always Virtual, Erect, Diminished &nbsp;(Rear-View)</div>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section class="step" data-index="9" data-name="MIRROR EQUATION">
+      <div class="card">
+        <h3>Analytical Optics</h3>
+        <h1>Mirror Formula &amp; Sign Convention</h1>
+        <p>Using Cartesian coordinates with Pole as origin, object distances u are negative, yielding rigorous reciprocal focal lengths.</p>
+        <div class="formula-tag">1/f = 1/v + 1/u &nbsp;|&nbsp; m = -v / u = hᵢ / hₒ</div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section class="step" data-index="10" data-name="SNELL'S REFRACTION">
+      <div class="card">
+        <h3>Interfacial Bending</h3>
+        <h1>Snell's Law &amp; Refractive Index</h1>
+        <p>When light enters an optically denser medium, phase velocity decelerates, bending the wave-vector toward the normal line.</p>
+        <div class="formula-tag">n₁ sin(θ₁) = n₂ sin(θ₂) &nbsp;|&nbsp; n = c / v</div>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="step" data-index="11" data-name="PARALLEL SLAB DISPLACEMENT">
+      <div class="card">
+        <h3>Refraction Dynamics</h3>
+        <h1>Refraction via Glass Slab</h1>
+        <p>Emergent beam retains identical angular trajectory as incident ray. Interfacial bends produce a pure parallel lateral shift.</p>
+        <div class="formula-tag">d = t · sin(θ₁ - θ₂) / cos(θ₂)</div>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section class="step" data-index="12" data-name="TOTAL INTERNAL REFLECTION">
+      <div class="card">
+        <h3>Critical Angle Boundary</h3>
+        <h1>Total Internal Reflection (TIR)</h1>
+        <p>Past the critical angle θc, refraction into air becomes mathematically impossible; 100% of light energy reflects back internally.</p>
+        <div class="formula-tag">sin(θ_crit) = n₂ / n₁ &nbsp;|&nbsp; Fiber Optics</div>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section class="step" data-index="13" data-name="CONVEX LENS CONVERGENCE">
+      <div class="card">
+        <h3>Refractive Converger</h3>
+        <h1>Convex Lens Geometry</h1>
+        <p>Paraxial rays refract across two convex interfaces, converging with clean coherence at the secondary principal focal plane F₂.</p>
+        <div class="formula-tag">Converging Diopter &nbsp;|&nbsp; Focal Length f &gt; 0</div>
+      </div>
+    </section>
+
+    <!-- 14 -->
+    <section class="step" data-index="14" data-name="CONCAVE LENS DIVERGENCE">
+      <div class="card">
+        <h3>Refractive Diverger</h3>
+        <h1>Concave Lens Geometry</h1>
+        <p>Thinner at center than edges, incident parallel wavefronts diverge away from axis, tracing virtual paths back to primary focus F₁.</p>
+        <div class="formula-tag">Diverging Diopter &nbsp;|&nbsp; Focal Length f &lt; 0</div>
+      </div>
+    </section>
+
+    <!-- 15 -->
+    <section class="step" data-index="15" data-name="CONVEX LENS: REAL IMAGE">
+      <div class="card">
+        <h3>Convex Lens (Case I)</h3>
+        <h1>Real &amp; Inverted Image Formation</h1>
+        <p>Object positioned outside focal length. Rays pass through the optical center (O) undeflected and intersect refracted focal rays to form a real image.</p>
+        <div class="formula-tag">1/f = 1/v - 1/u &nbsp;|&nbsp; m = +v / u</div>
+      </div>
+    </section>
+
+    <!-- 16 -->
+    <section class="step" data-index="16" data-name="CONVEX LENS: MAGNIFIER">
+      <div class="card">
+        <h3>Convex Lens (Case II)</h3>
+        <h1>Simple Magnifying Glass</h1>
+        <p>Object positioned within focal point (u &lt; f). Rays diverge after transmission; backward extensions form an erect, magnified virtual image.</p>
+        <div class="formula-tag">Angular Magnification M = 1 + (D / f)</div>
+      </div>
+    </section>
+
+    <!-- 17 -->
+    <section class="step" data-index="17" data-name="OPTICAL POWER &amp; DIOPTER">
+      <div class="card">
+        <h3>Lens Power</h3>
+        <h1>Dioptric Power &amp; Combinations</h1>
+        <p>Optical power measures lens ray-bending capacity. Thin lenses in contact add algebraically without loss of generality.</p>
+        <div class="formula-tag">P = 1 / f (meters) &nbsp;|&nbsp; P_net = P₁ + P₂</div>
+      </div>
+    </section>
+
+    <!-- 18 -->
+    <section class="step" data-index="18" data-name="HUMAN VISION &amp; CORRECTION">
+      <div class="card">
+        <h3>Biological Optics</h3>
+        <h1>Myopia &amp; Concave Correction</h1>
+        <p>An elongated eyeball focuses distant light in front of the retina. A diverging concave prescription shifts the focal point onto the retina.</p>
+        <div class="formula-tag">Myopia Corrective Power P = -1 / FarPoint</div>
+      </div>
+    </section>
+
+    <!-- 19 -->
+    <section class="step" data-index="19" data-name="OPTICAL INSTRUMENT">
+      <div class="card">
+        <h3>Advanced Instrument</h3>
+        <h1>Astronomical Refractor Telescope</h1>
+        <p>Objective lens forms an inverted real image at its focal plane. Eyepiece acts as a magnifier, projecting the virtual image to infinity.</p>
+        <div class="formula-tag">M = -fₒ / fₑ &nbsp;|&nbsp; Tube Length L = fₒ + fₑ</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* ENGINE INITIALIZATION */
+    const canvas = document.getElementById("optics-canvas");
+    const ctx = canvas.getContext("2d");
+    const hudIndex = document.getElementById("hud-index");
+    const hudTitle = document.getElementById("hud-title");
+    const progressBar = document.getElementById("progress-bar");
+    const stepElements = document.querySelectorAll(".step");
+
+    let W = (canvas.width = window.innerWidth);
+    let H = (canvas.height = window.innerHeight);
+
+    window.addEventListener("resize", () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    });
+
+    let scrollProgress = 0;
+    let currentStep = 0;
+    let animTime = 0;
+
+    // Track scroll positions smoothly
+    window.addEventListener("scroll", () => {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      scrollProgress = Math.max(0, Math.min(1, window.scrollY / (maxScroll || 1)));
+
+      const stepCount = stepElements.length;
+      const exactIndex = scrollProgress * (stepCount - 1);
+      currentStep = Math.min(stepCount - 1, Math.floor(exactIndex + 0.5));
+
+      progressBar.style.width = (scrollProgress * 100).toFixed(1) + "%";
+
+      stepElements.forEach((el, idx) => {
+        if (idx === currentStep) {
+          el.classList.add("active");
+          const modNumber = (idx + 1).toString().padStart(2, "0");
+          hudIndex.innerText = `MODULE ${modNumber} // 20`;
+          hudTitle.innerText = el.getAttribute("data-name");
+        } else {
+          el.classList.remove("active");
+        }
+      });
+    });
+
+    /* VECTOR / DRAWING UTILITIES */
+    function drawGlowLine(x1, y1, x2, y2, color, lineWidth = 2, blur = 10) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = blur;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawDashedGlowLine(x1, y1, x2, y2, color, lineWidth = 1.5) {
+      ctx.save();
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawGlowDot(x, y, radius, color, label = "") {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (label) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText(label, x + 8, y - 8);
+      }
+      ctx.restore();
+    }
+
+    function drawArrow(x, y, height, color, label = "") {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y - height);
+      ctx.stroke();
+
+      // Arrowhead
+      const headSize = Math.sign(height) * 8;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x, y - height);
+      ctx.lineTo(x - 5, y - height + headSize);
+      ctx.lineTo(x + 5, y - height + headSize);
+      ctx.closePath();
+      ctx.fill();
+
+      if (label) {
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText(label, x - 15, y - height - 12);
+      }
+      ctx.restore();
+    }
+
+    /* SCENE RENDERING MODULES */
+    const scenes = {
+      // 0: LIGHT RECTILINEAR PROPAGATION
+      0: (p, t) => {
+        const originX = W * 0.45;
+        const originY = H * 0.5;
+
+        // Wavefronts
+        for (let r = 20; r < 350; r += 35) {
+          const waveR = (r + (t * 60) % 35);
+          ctx.save();
+          ctx.strokeStyle = `rgba(56, 189, 248, ${Math.max(0, 0.4 - waveR / 450)})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(originX, originY, waveR, -Math.PI * 0.4, Math.PI * 0.4);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Concentric Rays
+        for (let angle = -0.35; angle <= 0.35; angle += 0.12) {
+          const rayLen = 420;
+          const endX = originX + Math.cos(angle) * rayLen;
+          const endY = originY + Math.sin(angle) * rayLen;
+          drawGlowLine(originX, originY, endX, endY, "#38bdf8", 1.8, 8);
+        }
+
+        drawGlowDot(originX, originY, 8, "#38bdf8", "LIGHT EMITTER");
+      },
+
+      // 1: SPECULAR REFLECTION
+      1: (p, t) => {
+        const mirrorX = W * 0.65;
+        const mirrorY = H * 0.52;
+        const mirrorLen = 300;
+
+        // Mirror surface
+        drawGlowLine(mirrorX - mirrorLen / 2, mirrorY, mirrorX + mirrorLen / 2, mirrorY, "#cbd5e1", 4, 12);
+
+        // Mirror hatching
+        for (let x = mirrorX - mirrorLen / 2; x <= mirrorX + mirrorLen / 2; x += 15) {
+          drawGlowLine(x, mirrorY, x - 10, mirrorY + 12, "rgba(203, 213, 225, 0.3)", 1, 0);
+        }
+
+        // Normal
+        drawDashedGlowLine(mirrorX, mirrorY - 180, mirrorX, mirrorY + 20, "rgba(255,255,255,0.4)", 1.5);
+
+        // Oscillating incident angle
+        const theta = 0.55 + Math.sin(t * 1.5) * 0.2;
+        const len = 220;
+
+        const incX = mirrorX - Math.sin(theta) * len;
+        const incY = mirrorY - Math.cos(theta) * len;
+        const refX = mirrorX + Math.sin(theta) * len;
+        const refY = mirrorY - Math.cos(theta) * len;
+
+        drawGlowLine(incX, incY, mirrorX, mirrorY, "#f59e0b", 2.5, 12);
+        drawGlowLine(mirrorX, mirrorY, refX, refY, "#38bdf8", 2.5, 12);
+
+        drawGlowDot(mirrorX, mirrorY, 4, "#ffffff", "POINT OF INCIDENCE");
+
+        ctx.fillStyle = "#f59e0b";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText(`θᵢ = ${(theta * 180 / Math.PI).toFixed(1)}°`, mirrorX - 60, mirrorY - 40);
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillText(`θᵣ = ${(theta * 180 / Math.PI).toFixed(1)}°`, mirrorX + 25, mirrorY - 40);
+      },
+
+      // 2: PLANE MIRROR FORMATION
+      2: (p, t) => {
+        const mX = W * 0.62;
+        const mY = H * 0.5;
+
+        // Mirror vertical
+        drawGlowLine(mX, mY - 180, mX, mY + 180, "#cbd5e1", 3, 10);
+
+        const objDist = 170;
+        const objHeight = 90;
+        const oX = mX - objDist;
+        const oY = mY;
+        const iX = mX + objDist;
+        const iY = mY;
+
+        // Object and Image
+        drawArrow(oX, oY, objHeight, "#10b981", "OBJECT");
+        drawArrow(iX, iY, objHeight, "#818cf8", "VIRTUAL IMAGE");
+
+        // Real Ray 1: Horizontal then reflected back
+        drawGlowLine(oX, oY - objHeight, mX, oY - objHeight, "#38bdf8", 2, 8);
+        drawGlowLine(mX, oY - objHeight, oX - 50, oY - objHeight, "#38bdf8", 2, 8);
+        drawDashedGlowLine(mX, oY - objHeight, iX, iY - objHeight, "rgba(129, 140, 248, 0.6)", 1.5);
+
+        // Real Ray 2: Oblique to mirror pole
+        drawGlowLine(oX, oY - objHeight, mX, mY, "#f59e0b", 2, 8);
+        drawGlowLine(mX, mY, oX - 80, mY + objHeight * (mY / (mX - oX)), "#f59e0b", 2, 8);
+        drawDashedGlowLine(mX, mY, iX, iY - objHeight, "rgba(129, 140, 248, 0.6)", 1.5);
+
+        // Distance indicators
+        drawDashedGlowLine(oX, mY + 30, mX, mY + 30, "rgba(255,255,255,0.3)", 1);
+        drawDashedGlowLine(mX, mY + 30, iX, mY + 30, "rgba(255,255,255,0.3)", 1);
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText(`dₒ = ${objDist}px`, oX + 40, mY + 24);
+        ctx.fillText(`dᵢ = ${objDist}px`, mX + 40, mY + 24);
+      },
+
+      // 3: SPHERICAL MIRROR GEOMETRY (P, F, C)
+      3: (p, t) => {
+        const pX = W * 0.78;
+        const pY = H * 0.5;
+        const R = 320;
+        const f = R / 2;
+
+        const cX = pX - R;
+        const fX = pX - f;
+
+        // Principal Axis
+        drawGlowLine(W * 0.3, pY, pX + 50, pY, "rgba(255,255,255,0.3)", 1.5, 0);
+
+        // Concave Mirror Arc
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.arc(cX, pY, R, -0.5, 0.5);
+        ctx.stroke();
+        ctx.restore();
+
+        // Points
+        drawGlowDot(pX, pY, 5, "#ffffff", "P (Pole)");
+        drawGlowDot(fX, pY, 5, "#38bdf8", "F (Focus)");
+        drawGlowDot(cX, pY, 5, "#f43f5e", "C (Center)");
+
+        // Paraxial parallel rays converging to F
+        [-80, -40, 40, 80].forEach((offset) => {
+          const rayY = pY + offset;
+          const arcDx = Math.sqrt(Math.max(0, R * R - offset * offset));
+          const hitX = cX + arcDx;
+          drawGlowLine(W * 0.35, rayY, hitX, rayY, "#38bdf8", 1.8, 6);
+          drawGlowLine(hitX, rayY, fX, pY, "#38bdf8", 1.8, 6);
+        });
+      },
+
+      // 4: CONCAVE MIRROR - OBJECT BEYOND C
+      4: (p, t) => {
+        renderConcaveCase(320, 420, 85, "Beyond C");
+      },
+
+      // 5: CONCAVE MIRROR - OBJECT AT C
+      5: (p, t) => {
+        renderConcaveCase(320, 320, 85, "At C");
+      },
+
+      // 6: CONCAVE MIRROR - OBJECT BETWEEN F AND C
+      6: (p, t) => {
+        renderConcaveCase(320, 225, 60, "Between F and C");
+      },
+
+      // 7: CONCAVE MIRROR - OBJECT INSIDE F (VIRTUAL)
+      7: (p, t) => {
+        const pX = W * 0.65;
+        const pY = H * 0.5;
+        const R = 300;
+        const f = R / 2;
+        const cX = pX - R;
+        const fX = pX - f;
+
+        drawGlowLine(W * 0.25, pY, W * 0.9, pY, "rgba(255,255,255,0.2)", 1.5, 0);
+
+        // Concave arc
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(cX, pY, R, -0.6, 0.6);
+        ctx.stroke();
+        ctx.restore();
+
+        drawGlowDot(pX, pY, 4, "#ffffff", "P");
+        drawGlowDot(fX, pY, 4, "#38bdf8", "F");
+        drawGlowDot(cX, pY, 4, "#f43f5e", "C");
+
+        // Object placed inside F
+        const u = 80;
+        const oX = pX - u;
+        const oH = 50;
+        drawArrow(oX, pY, oH, "#10b981", "OBJECT");
+
+        // Image calculations (1/v = 1/(-f) - 1/(-u) = -1/150 + 1/80)
+        // v is positive (behind mirror)
+        const v = (u * f) / (u - f); // negative in formula, meaning behind mirror
+        const iDist = Math.abs(v);
+        const iX = pX + iDist;
+        const iH = oH * (iDist / u);
+
+        // Virtual magnified image
+        drawArrow(iX, pY, iH, "#818cf8", "VIRTUAL IMAGE");
+
+        // Ray 1: Parallel to axis, reflects back through F
+        drawGlowLine(oX, pY - oH, pX, pY - oH, "#38bdf8", 2, 8);
+        drawGlowLine(pX, pY - oH, fX - 120, pY + ((pY - oH - pY) / (pX - fX)) * (fX - 120 - fX), "#38bdf8", 2, 8);
+        drawDashedGlowLine(pX, pY - oH, iX, pY - iH, "rgba(129, 140, 248, 0.7)", 2);
+
+        // Ray 2: From top of object through pole
+        drawGlowLine(oX, pY - oH, pX, pY, "#f59e0b", 2, 8);
+        drawGlowLine(pX, pY, pX - 140, pY + oH * (140 / u), "#f59e0b", 2, 8);
+        drawDashedGlowLine(pX, pY, iX, pY - iH, "rgba(129, 140, 248, 0.7)", 2);
+      },
+
+      // 8: CONVEX MIRROR DIVERGENCE
+      8: (p, t) => {
+        const pX = W * 0.58;
+        const pY = H * 0.5;
+        const R = 280;
+        const f = R / 2;
+        const cX = pX + R;
+        const fX = pX + f;
+
+        drawGlowLine(W * 0.25, pY, W * 0.85, pY, "rgba(255,255,255,0.25)", 1.5, 0);
+
+        // Convex arc (bulges left)
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(cX, pY, R, Math.PI - 0.55, Math.PI + 0.55);
+        ctx.stroke();
+        ctx.restore();
+
+        drawGlowDot(pX, pY, 4, "#ffffff", "P");
+        drawGlowDot(fX, pY, 4, "#38bdf8", "F");
+        drawGlowDot(cX, pY, 4, "#f43f5e", "C");
+
+        const u = 140;
+        const oX = pX - u;
+        const oH = 80;
+        drawArrow(oX, pY, oH, "#10b981", "OBJECT");
+
+        // 1/v = 1/f - 1/(-u) = 1/140 + 1/140 => v = 70px behind mirror
+        const v = (u * f) / (u + f);
+        const iX = pX + v;
+        const iH = oH * (v / u);
+
+        drawArrow(iX, pY, iH, "#818cf8", "VIRTUAL (Diminished)");
+
+        // Parallel ray diverged
+        drawGlowLine(oX, pY - oH, pX, pY - oH, "#38bdf8", 2, 8);
+        drawGlowLine(pX, pY - oH, pX - 120, pY - oH - ((pY - oH - pY) / f) * 120, "#38bdf8", 2, 8);
+        drawDashedGlowLine(pX, pY - oH, fX, pY, "rgba(129, 140, 248, 0.7)", 1.8);
+
+        // Ray towards C
+        drawGlowLine(oX, pY - oH, pX, pY - oH + ((pY - (pY - oH)) / (cX - oX)) * (pX - oX), "#f59e0b", 2, 8);
+        drawDashedGlowLine(pX, pY - oH + ((pY - (pY - oH)) / (cX - oX)) * (pX - oX), cX, pY, "rgba(245, 158, 11, 0.6)", 1.5);
+      },
+
+      // 9: MIRROR FORMULA & DYNAMIC SOLVER
+      9: (p, t) => {
+        const oscU = 200 + Math.sin(t * 1.5) * 60;
+        renderConcaveCase(260, oscU, 70, `Dynamic u = -${oscU.toFixed(0)}px`);
+      },
+
+      // 10: SNELL'S LAW & REFRACTION
+      10: (p, t) => {
+        const intY = H * 0.5;
+        const intX = W * 0.62;
+
+        // Interface
+        drawGlowLine(W * 0.35, intY, W * 0.9, intY, "#38bdf8", 2.5, 8);
+
+        // Media labels
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText("MEDIUM 1 (AIR: n₁ = 1.00)", W * 0.36, intY - 20);
+        ctx.fillText("MEDIUM 2 (GLASS: n₂ = 1.52)", W * 0.36, intY + 35);
+
+        // Normal
+        drawDashedGlowLine(intX, intY - 170, intX, intY + 170, "rgba(255,255,255,0.4)", 1.5);
+
+        const theta1 = 0.7 + Math.sin(t * 1.2) * 0.25;
+        const n1 = 1.0;
+        const n2 = 1.52;
+        const theta2 = Math.asin((n1 * Math.sin(theta1)) / n2);
+
+        const len = 200;
+        const ray1X = intX - Math.sin(theta1) * len;
+        const ray1Y = intY - Math.cos(theta1) * len;
+        const ray2X = intX + Math.sin(theta2) * len;
+        const ray2Y = intY + Math.cos(theta2) * len;
+
+        drawGlowLine(ray1X, ray1Y, intX, intY, "#f59e0b", 3, 10);
+        drawGlowLine(intX, intY, ray2X, ray2Y, "#38bdf8", 3, 10);
+
+        drawGlowDot(intX, intY, 5, "#ffffff");
+
+        ctx.fillStyle = "#f59e0b";
+        ctx.fillText(`θ₁ = ${(theta1 * 180 / Math.PI).toFixed(1)}°`, intX - 65, intY - 45);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillText(`θ₂ = ${(theta2 * 180 / Math.PI).toFixed(1)}° (Bent toward normal)`, intX + 15, intY + 55);
+      },
+
+      // 11: RECTANGULAR GLASS SLAB
+      11: (p, t) => {
+        const sX = W * 0.52;
+        const sY = H * 0.38;
+        const sW = 280;
+        const sH = 140;
+
+        // Slab body
+        ctx.save();
+        ctx.fillStyle = "rgba(56, 189, 248, 0.08)";
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 10;
+        ctx.fillRect(sX, sY, sW, sH);
+        ctx.strokeRect(sX, sY, sW, sH);
+        ctx.restore();
+
+        const hit1X = sX + 70;
+        const hit1Y = sY;
+        const theta1 = 0.8;
+        const nGlass = 1.5;
+        const theta2 = Math.asin(Math.sin(theta1) / nGlass);
+
+        const inLen = 140;
+        const startX = hit1X - Math.tan(theta1) * inLen;
+        const startY = hit1Y - inLen;
+
+        const slabDx = sH * Math.tan(theta2);
+        const hit2X = hit1X + slabDx;
+        const hit2Y = sY + sH;
+
+        const outLen = 140;
+        const endX = hit2X + Math.tan(theta1) * outLen;
+        const endY = hit2Y + outLen;
+
+        // Incident Ray
+        drawGlowLine(startX, startY, hit1X, hit1Y, "#f59e0b", 2.5, 8);
+        // Refracted Ray through glass
+        drawGlowLine(hit1X, hit1Y, hit2X, hit2Y, "#38bdf8", 2.5, 8);
+        // Emergent Ray
+        drawGlowLine(hit2X, hit2Y, endX, endY, "#f59e0b", 2.5, 8);
+
+        // Undeviated original path projection
+        const undevEndX = hit1X + Math.tan(theta1) * (sH + outLen);
+        const undevEndY = hit1Y + sH + outLen;
+        drawDashedGlowLine(hit1X, hit1Y, undevEndX, undevEndY, "rgba(255,255,255,0.3)", 1.5);
+
+        // Lateral displacement indicator
+        drawGlowLine(endX, endY, undevEndX, undevEndY, "#f43f5e", 2, 6);
+        ctx.fillStyle = "#f43f5e";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText("Lateral Displacement (d)", endX - 140, endY + 2);
+      },
+
+      // 12: TOTAL INTERNAL REFLECTION & CRITICAL ANGLE
+      12: (p, t) => {
+        const intY = H * 0.52;
+        const cX = W * 0.62;
+
+        drawGlowLine(W * 0.35, intY, W * 0.9, intY, "#38bdf8", 2, 8);
+        drawDashedGlowLine(cX, intY - 170, cX, intY + 170, "rgba(255,255,255,0.4)", 1.5);
+
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText("RARE MEDIUM (AIR: n₂ = 1.0)", W * 0.36, intY - 20);
+        ctx.fillText("DENSE MEDIUM (WATER/GLASS: n₁ = 1.5)", W * 0.36, intY + 35);
+
+        // Cycle through: subcritical, critical, TIR
+        const mode = (t * 0.5) % 3;
+        let theta1;
+        let note = "";
+
+        if (mode < 1) {
+          theta1 = 0.45;
+          note = "Subcritical Refraction (θ < θc)";
+        } else if (mode < 2) {
+          theta1 = Math.asin(1.0 / 1.5); // ~41.8°
+          note = "Critical Angle (θ = θc => θ₂ = 90°)";
+        } else {
+          theta1 = 0.95;
+          note = "Total Internal Reflection (θ > θc)";
+        }
+
+        const len = 190;
+        const inX = cX - Math.sin(theta1) * len;
+        const inY = intY + Math.cos(theta1) * len;
+
+        drawGlowLine(inX, inY, cX, intY, "#f59e0b", 2.5, 10);
+
+        if (mode < 1) {
+          const theta2 = Math.asin((1.5 * Math.sin(theta1)) / 1.0);
+          const outX = cX + Math.sin(theta2) * len;
+          const outY = intY - Math.cos(theta2) * len;
+          drawGlowLine(cX, intY, outX, outY, "#38bdf8", 2.5, 10);
+        } else if (mode < 2) {
+          drawGlowLine(cX, intY, cX + len * 1.2, intY, "#38bdf8", 3, 14);
+        } else {
+          const outX = cX + Math.sin(theta1) * len;
+          const outY = intY + Math.cos(theta1) * len;
+          drawGlowLine(cX, intY, outX, outY, "#f43f5e", 3, 12);
+        }
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "13px 'SF Mono', monospace";
+        ctx.fillText(note, cX - 100, intY + 185);
+      },
+
+      // 13: CONVEX LENS (CONVERGENCE)
+      13: (p, t) => {
+        const lX = W * 0.65;
+        const lY = H * 0.5;
+        const f = 150;
+
+        drawGlowLine(W * 0.35, lY, W * 0.9, lY, "rgba(255,255,255,0.25)", 1.5, 0);
+
+        // Lens Profile
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.fillStyle = "rgba(56, 189, 248, 0.12)";
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.ellipse(lX, lY, 18, 170, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        drawGlowDot(lX, lY, 4, "#ffffff", "O");
+        drawGlowDot(lX + f, lY, 4, "#38bdf8", "F₂");
+        drawGlowDot(lX - f, lY, 4, "#38bdf8", "F₁");
+
+        // Converging Rays
+        [-80, -40, 40, 80].forEach((offset) => {
+          drawGlowLine(W * 0.36, lY + offset, lX, lY + offset, "#38bdf8", 2, 8);
+          drawGlowLine(lX, lY + offset, lX + f * 1.5, lY - offset * 0.5, "#38bdf8", 2, 8);
+        });
+      },
+
+      // 14: CONCAVE LENS (DIVERGENCE)
+      14: (p, t) => {
+        const lX = W * 0.65;
+        const lY = H * 0.5;
+        const f = 130;
+
+        drawGlowLine(W * 0.35, lY, W * 0.9, lY, "rgba(255,255,255,0.25)", 1.5, 0);
+
+        // Concave Profile
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.fillStyle = "rgba(56, 189, 248, 0.08)";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.moveTo(lX - 16, lY - 170);
+        ctx.lineTo(lX + 16, lY - 170);
+        ctx.quadraticCurveTo(lX + 3, lY, lX + 16, lY + 170);
+        ctx.lineTo(lX - 16, lY + 170);
+        ctx.quadraticCurveTo(lX - 3, lY, lX - 16, lY - 170);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        drawGlowDot(lX, lY, 4, "#ffffff", "O");
+        drawGlowDot(lX - f, lY, 4, "#38bdf8", "F₁");
+
+        [-70, -35, 35, 70].forEach((offset) => {
+          drawGlowLine(W * 0.36, lY + offset, lX, lY + offset, "#38bdf8", 2, 6);
+          // Diverges away from F₁
+          const slope = offset / f;
+          const outLen = 140;
+          drawGlowLine(lX, lY + offset, lX + outLen, lY + offset + slope * outLen, "#38bdf8", 2, 6);
+          drawDashedGlowLine(lX, lY + offset, lX - f, lY, "rgba(129, 140, 248, 0.6)", 1.5);
+        });
+      },
+
+      // 15: CONVEX LENS IMAGE FORMATION (REAL & INVERTED)
+      15: (p, t) => {
+        renderConvexLensCase(130, 240, 70, "Real & Inverted");
+      },
+
+      // 16: CONVEX LENS AS MAGNIFIER (OBJECT INSIDE F)
+      16: (p, t) => {
+        const lX = W * 0.65;
+        const lY = H * 0.5;
+        const f = 160;
+        const u = 95;
+        const oH = 45;
+
+        drawGlowLine(W * 0.3, lY, W * 0.9, lY, "rgba(255,255,255,0.25)", 1.5, 0);
+
+        // Lens Profile
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.fillStyle = "rgba(56, 189, 248, 0.1)";
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#38bdf8";
+        ctx.beginPath();
+        ctx.ellipse(lX, lY, 15, 170, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        drawGlowDot(lX, lY, 4, "#ffffff", "O");
+        drawGlowDot(lX - f, lY, 4, "#38bdf8", "F₁");
+        drawGlowDot(lX + f, lY, 4, "#38bdf8", "F₂");
+
+        const oX = lX - u;
+        drawArrow(oX, lY, oH, "#10b981", "OBJECT");
+
+        // 1/v - 1/u = 1/f => 1/v = 1/160 - 1/95 => v is negative (virtual)
+        const v = 1 / (1 / f - 1 / u);
+        const iDist = Math.abs(v);
+        const iX = lX - iDist;
+        const iH = oH * (iDist / u);
+
+        drawArrow(iX, lY, iH, "#818cf8", "VIRTUAL IMAGE (Magnified)");
+
+        // Ray 1: Parallel then through F₂
+        drawGlowLine(oX, lY - oH, lX, lY - oH, "#38bdf8", 2, 8);
+        drawGlowLine(lX, lY - oH, lX + 160, lY - oH + ((oH + (lY - oH)) / f) * 160, "#38bdf8", 2, 8);
+        drawDashedGlowLine(lX, lY - oH, iX, lY - iH, "rgba(129, 140, 248, 0.7)", 1.8);
+
+        // Ray 2: Optical center O
+        drawGlowLine(oX, lY - oH, lX + 160, lY + (oH / u) * 160, "#f59e0b", 2, 8);
+        drawDashedGlowLine(oX, lY - oH, iX, lY - iH, "rgba(245, 158, 11, 0.7)", 1.8);
+      },
+
+      // 17: POWER OF LENS & COMBINATIONS
+      17: (p, t) => {
+        const l1X = W * 0.62;
+        const l2X = l1X + 26;
+        const lY = H * 0.5;
+
+        drawGlowLine(W * 0.35, lY, W * 0.9, lY, "rgba(255,255,255,0.25)", 1.5, 0);
+
+        // Combined Lenses in Contact
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.fillStyle = "rgba(56, 189, 248, 0.1)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(l1X, lY, 12, 160, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = "#818cf8";
+        ctx.fillStyle = "rgba(129, 140, 248, 0.1)";
+        ctx.beginPath();
+        ctx.ellipse(l2X, lY, 12, 160, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        const combinedF = 110;
+        drawGlowDot(l2X + combinedF, lY, 5, "#f43f5e", "F_net");
+
+        [-70, -35, 35, 70].forEach((offset) => {
+          drawGlowLine(W * 0.36, lY + offset, l1X, lY + offset, "#38bdf8", 2, 6);
+          drawGlowLine(l2X, lY + offset, l2X + combinedF, lY, "#38bdf8", 2, 6);
+        });
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px 'SF Mono', monospace";
+        ctx.fillText("P₁ = +2.5 D (Lens 1)", l1X - 60, lY - 180);
+        ctx.fillText("P₂ = +1.5 D (Lens 2)", l2X + 20, lY - 180);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillText("P_net = P₁ + P₂ = +4.0 D", l1X - 20, lY + 195);
+      },
+
+      // 18: HUMAN EYE & MYOPIA CORRECTION
+      18: (p, t) => {
+        const eyeX = W * 0.68;
+        const eyeY = H * 0.5;
+        const eyeR = 120;
+
+        // Eyeball Globe
+        ctx.save();
+        ctx.strokeStyle = "#475569";
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(eyeX, eyeY, eyeR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Retina Back Wall Glow
+        ctx.strokeStyle = "#f43f5e";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(eyeX, eyeY, eyeR, -0.6, 0.6);
+        ctx.stroke();
+        ctx.restore();
+
+        // Eye Lens
+        const lensX = eyeX - eyeR + 25;
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(lensX, eyeY, 10, 50, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // Corrective Concave Spectacle Lens in front of eye
+        const specX = lensX - 65;
+        ctx.save();
+        ctx.strokeStyle = "#818cf8";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(specX - 6, eyeY - 45);
+        ctx.lineTo(specX + 6, eyeY - 45);
+        ctx.quadraticCurveTo(specX + 1, eyeY, specX + 6, eyeY + 45);
+        ctx.lineTo(specX - 6, eyeY + 45);
+        ctx.quadraticCurveTo(specX - 1, eyeY, specX - 6, eyeY - 45);
+        ctx.stroke();
+        ctx.restore();
+
+        // Corrected Light Rays focusing sharply onto Retina (eyeX + eyeR)
+        [-35, 35].forEach((offset) => {
+          drawGlowLine(W * 0.35, eyeY + offset, specX, eyeY + offset, "#38bdf8", 1.8, 6);
+          // slight diverge from spectacle
+          const divY = eyeY + offset * 1.15;
+          drawGlowLine(specX, eyeY + offset, lensX, divY, "#38bdf8", 1.8, 6);
+          // eye lens focuses on retina
+          drawGlowLine(lensX, divY, eyeX + eyeR, eyeY, "#10b981", 2, 8);
+        });
+
+        drawGlowDot(eyeX + eyeR, eyeY, 5, "#10b981", "Retina Focus");
+        ctx.fillStyle = "#818cf8";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText("Concave Corrector", specX - 60, eyeY - 60);
+      },
+
+      // 19: ASTRONOMICAL TELESCOPE
+      19: (p, t) => {
+        const objX = W * 0.48;
+        const eyeX = W * 0.82;
+        const axisY = H * 0.5;
+
+        // Principal Axis
+        drawGlowLine(W * 0.3, axisY, W * 0.92, axisY, "rgba(255,255,255,0.2)", 1, 0);
+
+        // Objective Lens (Large f_o)
+        ctx.save();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.fillStyle = "rgba(56, 189, 248, 0.1)";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.ellipse(objX, axisY, 16, 160, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // Eyepiece Lens (Small f_e)
+        ctx.save();
+        ctx.strokeStyle = "#818cf8";
+        ctx.fillStyle = "rgba(129, 140, 248, 0.1)";
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#818cf8";
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.ellipse(eyeX, axisY, 10, 75, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // Intermediate Real Focal Plane
+        const focalPlaneX = objX + 180;
+        drawDashedGlowLine(focalPlaneX, axisY - 50, focalPlaneX, axisY + 50, "rgba(255,255,255,0.3)", 1);
+        drawArrow(focalPlaneX, axisY, -35, "#f59e0b", "Intermediate Image");
+
+        // Incoming parallel rays from distant star (tilted)
+        const tilt = 28;
+        drawGlowLine(W * 0.32, axisY - 80 - tilt, objX, axisY - 80, "#38bdf8", 2, 6);
+        drawGlowLine(W * 0.32, axisY - tilt, objX, axisY, "#38bdf8", 2, 6);
+        drawGlowLine(W * 0.32, axisY + 80 - tilt, objX, axisY + 80, "#38bdf8", 2, 6);
+
+        // Objective convergence to focal plane
+        drawGlowLine(objX, axisY - 80, focalPlaneX, axisY + 35, "#38bdf8", 2, 6);
+        drawGlowLine(objX, axisY, focalPlaneX, axisY + 35, "#38bdf8", 2, 6);
+        drawGlowLine(objX, axisY + 80, focalPlaneX, axisY + 35, "#38bdf8", 2, 6);
+
+        // Eyepiece collimates to parallel infinity beam
+        drawGlowLine(focalPlaneX, axisY + 35, eyeX, axisY + 25, "#818cf8", 2, 6);
+        drawGlowLine(focalPlaneX, axisY + 35, eyeX, axisY - 25, "#818cf8", 2, 6);
+        drawGlowLine(eyeX, axisY + 25, eyeX + 80, axisY + 55, "#818cf8", 2, 6);
+        drawGlowLine(eyeX, axisY - 25, eyeX + 80, axisY + 5, "#818cf8", 2, 6);
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "11px 'SF Mono', monospace";
+        ctx.fillText("Objective (fₒ)", objX - 45, axisY - 175);
+        ctx.fillStyle = "#818cf8";
+        ctx.fillText("Eyepiece (fₑ)", eyeX - 45, axisY - 90);
+      }
+    };
+
+    /* REUSABLE OPTICAL TRACERS */
+    function renderConcaveCase(R, u, oH, labelText) {
+      const pX = W * 0.72;
+      const pY = H * 0.5;
+      const f = R / 2;
+      const cX = pX - R;
+      const fX = pX - f;
+
+      // Axis
+      drawGlowLine(W * 0.25, pY, pX + 40, pY, "rgba(255,255,255,0.25)", 1.5, 0);
+
+      // Concave Mirror Arc
+      ctx.save();
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 4;
+      ctx.shadowColor = "#38bdf8";
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(cX, pY, R, -0.6, 0.6);
+      ctx.stroke();
+      ctx.restore();
+
+      drawGlowDot(pX, pY, 4, "#ffffff", "P");
+      drawGlowDot(fX, pY, 4, "#38bdf8", "F");
+      drawGlowDot(cX, pY, 4, "#f43f5e", "C");
+
+      const oX = pX - u;
+      drawArrow(oX, pY, oH, "#10b981", "OBJECT");
+
+      // Mirror Equation: 1/v = 1/f - 1/u with sign convention (concave f is negative)
+      // 1/(-v) + 1/(-u) = 1/(-f) => 1/v = 1/f - 1/u
+      const v = (u * f) / (u - f);
+      const iX = pX - v;
+      const iH = -oH * (v / u);
+
+      drawArrow(iX, pY, iH, "#818cf8", "REAL IMAGE");
+
+      // Ray 1: Parallel to axis -> reflects through F
+      drawGlowLine(oX, pY - oH, pX, pY - oH, "#38bdf8", 2, 8);
+      const slope1 = (pY - (pY - oH)) / (fX - pX);
+      drawGlowLine(pX, pY - oH, iX - 50, (pY - oH) + slope1 * (iX - 50 - pX), "#38bdf8", 2, 8);
+
+      // Ray 2: Passing through F -> reflects parallel
+      const hit2X = pX;
+      const hit2Y = pY - iH;
+      drawGlowLine(oX, pY - oH, hit2X, hit2Y, "#f59e0b", 2, 8);
+      drawGlowLine(hit2X, hit2Y, iX - 70, hit2Y, "#f59e0b", 2, 8);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "12px 'SF Mono', monospace";
+      ctx.fillText(labelText, oX - 30, pY + 80);
+    }
+
+    function renderConvexLensCase(f, u, oH, labelText) {
+      const lX = W * 0.62;
+      const lY = H * 0.5;
+
+      drawGlowLine(W * 0.3, lY, W * 0.9, lY, "rgba(255,255,255,0.25)", 1.5, 0);
+
+      // Lens graphic
+      ctx.save();
+      ctx.strokeStyle = "#38bdf8";
+      ctx.fillStyle = "rgba(56, 189, 248, 0.12)";
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "#38bdf8";
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.ellipse(lX, lY, 16, 170, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      drawGlowDot(lX, lY, 4, "#ffffff", "O");
+      drawGlowDot(lX - f, lY, 4, "#38bdf8", "F₁");
+      drawGlowDot(lX + f, lY, 4, "#38bdf8", "F₂");
+      drawGlowDot(lX - 2 * f, lY, 4, "#f43f5e", "2F₁");
+      drawGlowDot(lX + 2 * f, lY, 4, "#f43f5e", "2F₂");
+
+      const oX = lX - u;
+      drawArrow(oX, lY, oH, "#10b981", "OBJECT");
+
+      // Lens equation: 1/v - 1/(-u) = 1/f => 1/v = 1/f - 1/u => v = (u*f)/(u-f)
+      const v = (u * f) / (u - f);
+      const iX = lX + v;
+      const iH = -oH * (v / u);
+
+      drawArrow(iX, lY, iH, "#818cf8", "REAL IMAGE");
+
+      // Ray 1: Parallel to axis -> refracts through F₂
+      drawGlowLine(oX, lY - oH, lX, lY - oH, "#38bdf8", 2, 8);
+      drawGlowLine(lX, lY - oH, iX + 40, (lY - oH) + ((lY - (lY - oH)) / f) * (iX + 40 - lX), "#38bdf8", 2, 8);
+
+      // Ray 2: Straight through optical center O
+      const slope2 = oH / u;
+      drawGlowLine(oX, lY - oH, iX + 40, lY + slope2 * (iX + 40 - lX), "#f59e0b", 2, 8);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "12px 'SF Mono', monospace";
+      ctx.fillText(labelText, oX - 30, lY + 70);
+    }
+
+    /* MAIN RENDER LOOP */
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      animTime += 0.02;
+
+      if (scenes[currentStep]) {
+        scenes[currentStep](scrollProgress, animTime);
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    // Start engine
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
